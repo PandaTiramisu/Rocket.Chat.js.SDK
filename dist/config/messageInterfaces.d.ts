@@ -11,29 +11,21 @@ export interface IMessage {
     bot?: any;
     urls?: string[];
     mentions?: string[];
-    reactions?: {
-        [emoji: string]: {
-            usernames: string[];
-        };
-    };
-    location?: {
-        type: string;
-        coordinates: string[];
-    };
-    attachments?: IAttachment[];
+    attachments?: IMessageAttachment[];
+    reactions?: IMessageReaction;
+    location?: IMessageLocation;
+    u?: IUser;
+    editedBy?: IUser;
     editedAt?: Date;
-    editedBy?: {
-        _id: string;
-        username: string;
-    };
-    u?: {
-        _id: string;
-        username: string;
-        name: string;
-    };
 }
-export interface IAttachment {
-    fields: IAttachmentField[];
+export interface IUser {
+    _id: string;
+    username: string;
+    name?: string;
+}
+export interface IMessageAttachment {
+    fields?: IAttachmentField[];
+    actions?: IMessageAction[];
     color?: string;
     text?: string;
     ts?: string;
@@ -52,6 +44,27 @@ export interface IAttachment {
 }
 export interface IAttachmentField {
     short?: boolean;
-    title: 'string';
-    value: 'string';
+    title?: string;
+    value?: string;
+}
+export interface IMessageAction {
+    type?: string;
+    text?: string;
+    url?: string;
+    image_url?: string;
+    is_webview?: boolean;
+    webview_height_ratio?: 'compact' | 'tall' | 'full';
+    msg?: string;
+    msg_in_chat_window?: boolean;
+    button_alignment?: 'vertical' | 'horizontal';
+    temporary_buttons?: boolean;
+}
+export interface IMessageLocation {
+    type: string;
+    coordinates: string[];
+}
+export interface IMessageReaction {
+    [emoji: string]: {
+        usernames: string[];
+    };
 }
