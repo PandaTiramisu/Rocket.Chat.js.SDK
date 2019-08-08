@@ -1,18 +1,16 @@
 // Test script uses standard methods and env config to connect and log streams
 import { botUser } from './config'
-import { IMessage } from '../config/messageInterfaces'
+import { IMessage } from '../interfaces'
 import { api, driver } from '..'
 const delay = (ms: number) => new Promise((resolve, reject) => setTimeout(resolve, ms))
 
 // Start subscription to log message stream (used for e2e test and demo)
 async function start () {
-  await driver.connect()
   await driver.login({ username: botUser.username, password: botUser.password })
-  await driver.subscribeToMessages()
   await driver.respondToMessages((err, msg, msgOpts) => {
     if (err) throw err
     console.log('[respond]', JSON.stringify(msg), JSON.stringify(msgOpts))
-    demo(msg).catch((e) => console.error(e))
+    if (msg) demo(msg).catch((e) => console.error(e))
   }, {
     rooms: ['general'],
     allPublic: false,
@@ -34,7 +32,7 @@ async function demo (message: IMessage) {
     const sayWhat = `@${message.u!.username} says "${match[1]}"`
     const usernames = await api.users.allNames()
     for (let username of usernames) {
-      if (username !== botUser.username) {
+      if (username && username !== botUser.username) {
         const toWhere = await driver.getDirectMessageRoomId(username)
         await driver.sendToRoomId(sayWhat, toWhere) // DM ID hax
         await delay(200) // delay to prevent rate-limit error

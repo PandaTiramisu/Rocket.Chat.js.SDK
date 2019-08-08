@@ -12,6 +12,7 @@ const api_1 = require("../lib/api");
 const config_1 = require("./config");
 /** Define common attributes for DRY tests */
 exports.testChannelName = 'tests';
+exports.testPrivateName = 'p-tests';
 /** Get information about a user */
 function userInfo(username) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -33,6 +34,23 @@ function channelInfo(query) {
     });
 }
 exports.channelInfo = channelInfo;
+/** Get information about a private group */
+function privateInfo(query) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return api_1.get('groups.info', query, true);
+    });
+}
+exports.privateInfo = privateInfo;
+/** Get the last messages sent to a channel (in last 10 minutes) */
+function lastMessages(roomId, count = 1) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const now = new Date();
+        const latest = now.toISOString();
+        const oldest = new Date(now.setMinutes(now.getMinutes() - 10)).toISOString();
+        return (yield api_1.get('channels.history', { roomId, latest, oldest, count })).messages;
+    });
+}
+exports.lastMessages = lastMessages;
 /** Create a room for tests and catch the error if it exists already */
 function createChannel(name, members = [], readOnly = false) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -40,6 +58,13 @@ function createChannel(name, members = [], readOnly = false) {
     });
 }
 exports.createChannel = createChannel;
+/** Create a private group / room and catch if exists already */
+function createPrivate(name, members = [], readOnly = false) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return api_1.post('groups.create', { name, members, readOnly }, true);
+    });
+}
+exports.createPrivate = createPrivate;
 /** Send message from mock user to channel for tests to listen and respond */
 /** @todo Sometimes the post request completes before the change event emits
  *        the message to the streamer. That's why the interval is used for proof
@@ -81,6 +106,34 @@ function sendFromUser(payload) {
     });
 }
 exports.sendFromUser = sendFromUser;
+/** Leave user from room, to generate `ul` message (test channel by default) */
+function leaveUser(room = {}) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield api_1.login({ username: config_1.mockUser.username, password: config_1.mockUser.password });
+        if (!room.id && !room.name)
+            room.name = exports.testChannelName;
+        const roomId = (room.id)
+            ? room.id
+            : (yield channelInfo({ roomName: room.name })).channel._id;
+        return api_1.post('channels.leave', { roomId });
+    });
+}
+exports.leaveUser = leaveUser;
+/** Invite user to room, to generate `au` message (test channel by default) */
+function inviteUser(room = {}) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let mockInfo = yield userInfo(config_1.mockUser.username);
+        yield api_1.login({ username: config_1.apiUser.username, password: config_1.apiUser.password });
+        if (!room.id && !room.name)
+            room.name = exports.testChannelName;
+        const roomId = (room.id)
+            ? room.id
+            : (yield channelInfo({ roomName: room.name })).channel._id;
+        return api_1.post('channels.invite', { userId: mockInfo.user._id, roomId });
+    });
+}
+exports.inviteUser = inviteUser;
+/** @todo : Join user into room (enter) to generate `uj` message type. */
 /** Update message sent from mock user */
 function updateFromUser(payload) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -112,7 +165,7 @@ function setup() {
             }
             // Verify or create user for bot
             let botInfo = yield userInfo(config_1.botUser.username);
-            if (!botInfo.success) {
+            if (!botInfo || !botInfo.success) {
                 console.log(`Bot user (${config_1.botUser.username}) not found`);
                 botInfo = yield createUser(config_1.botUser);
                 if (!botInfo.success) {
@@ -127,7 +180,7 @@ function setup() {
             }
             // Verify or create mock user for talking to bot
             let mockInfo = yield userInfo(config_1.mockUser.username);
-            if (!mockInfo.success) {
+            if (!mockInfo || !mockInfo.success) {
                 console.log(`Mock user (${config_1.mockUser.username}) not found`);
                 mockInfo = yield createUser(config_1.mockUser);
                 if (!mockInfo.success) {
@@ -142,9 +195,11 @@ function setup() {
             }
             // Verify or create channel for tests
             let testChannelInfo = yield channelInfo({ roomName: exports.testChannelName });
-            if (!testChannelInfo.success) {
+            if (!testChannelInfo || !testChannelInfo.success) {
                 console.log(`Test channel (${exports.testChannelName}) not found`);
-                testChannelInfo = yield createChannel(exports.testChannelName);
+                testChannelInfo = yield createChannel(exports.testChannelName, [
+                    config_1.apiUser.username, config_1.botUser.username, config_1.mockUser.username
+                ]);
                 if (!testChannelInfo.success) {
                     throw new Error(`Test channel (${exports.testChannelName}) could not be created`);
                 }
@@ -154,6 +209,23 @@ function setup() {
             }
             else {
                 console.log(`Test channel (${exports.testChannelName}) exists`);
+            }
+            // Verify or create private room for tests
+            let testPrivateInfo = yield privateInfo({ roomName: exports.testPrivateName });
+            if (!testPrivateInfo || !testPrivateInfo.success) {
+                console.log(`Test private room (${exports.testPrivateName}) not found`);
+                testPrivateInfo = yield createPrivate(exports.testPrivateName, [
+                    config_1.apiUser.username, config_1.botUser.username, config_1.mockUser.username
+                ]);
+                if (!testPrivateInfo.success) {
+                    throw new Error(`Test private room (${exports.testPrivateName}) could not be created`);
+                }
+                else {
+                    console.log(`Test private room (${exports.testPrivateName}) created`);
+                }
+            }
+            else {
+                console.log(`Test private room (${exports.testPrivateName}) exists`);
             }
             yield api_1.logout();
         }
